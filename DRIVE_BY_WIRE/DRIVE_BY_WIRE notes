@@ -1,0 +1,20 @@
+Subscriptions:
+	Topic: cmd_throttle
+	Published By: VEHICLE_CONTROL
+	Message Type: std_msgs/Float64
+	
+	Topic: cmd_steer
+	Published By: VEHICLE_CONTROL
+	Message Type: std_msgs/Float64
+
+	Topic: cmd_brake
+	Published By: VEHICLE_CONTROL
+	Message Type: std_msgs/Float64
+
+Publications:
+	- NONE -
+
+GENERAL NOTES:
+
+PID acts upon the ERROR TERM, not the VARIABLE ITSELF!!
+Hence, when feedback approaches desired value, error term approaches 0, and output approaches 0 as well!!

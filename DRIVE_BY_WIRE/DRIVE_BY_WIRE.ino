@@ -1,24 +1,24 @@
-
+ 
 /*
  * 
  * Steering motor actuated by receiving DC voltage levels
  * Steer faster = higher voltage
  * Steer direction determined by voltage polarity
- * steerPID receives cmd_steer values that represent the desired steering angle
- * steerPID directly PIDs steering angle value, and outputs steering angle to achieve smooth attainment of desired steering angle
- * NOTE: Since PID receives steering angles, it can only work with steering angles, not voltages, and can only output steering angles
- * Hence, steering motor shall be presented with a certain fixed (high) voltage for the fastest steering actuation towards PID'ed steering angles
+ * steerAnglePID receives cmd_steer values that represent the desired steering angle
+ * steerAnglePID also receives feedback from the steering angle rotary encoder
+ * steerAnglePID calculates with these and produces output based on ERROR TERM (not steering angle)
  * 
  * Brake motor also actuates by receiving DC voltage levels
  * Brake faster = higher voltage
  * The brake motor also needs a dedicated PID object
- * NOTE: Similar to the case as in steering, brake angle shall be the PID variable,
- * with a fixed (high) voltage for fastest actuation towards PID'ed brake angles
+ * brakeAnglePID receives cmd_steer values that represent the desired brake pedal angle
+ * brakeAnglePID also receives feedback from the brake pedal angle rotary encoder
+ * brakeAnglePID calculates with these and produces output based on ERROR TERM (not brake pedal angle)
  * 
- * Also, since the PID library works exclusively with doubles, using doubles is necessary.
+ * Since the PID library works exclusively with doubles, using doubles is necessary.
  * That said, all other variables are declared in types workable with the other nodes in the project,
  * and the declaration of doubles are kepts to a minimum. This is not a problem,
- * as doubles can be casted into floats and vice versa.
+ * as doubles can be casted into floats and vice versa
  * 
  */
 
@@ -68,11 +68,11 @@ uint8_t steerEncoderALastState = 0;
 
 double steerAngleDesired; // From VEHICLE_CONTROL -> cmd_steer (to be mapped into degrees)
 double steerAngleFeedback; // From encoder, in degrees
-double steerAngleActuate; // To steering motor, in degrees (to be amplified into relay voltage level)
+double steerActuate; // To steering motor, PID'ed according to ERROR TERM
 
 double brakeAngleDesired; // From VEHICLE_CONTROL -> cmd_brake (to be mapped into degrees)
 double brakeAngleFeedback; // From encoder, in degrees
-double brakeAngleActuate; // To brake motor, in degrees (to be amplified into relay voltage level)
+double brakeActuate; // To brake motor, PID'ed according to ERROR TERM
 
 float throttleActuate;
 
@@ -97,36 +97,24 @@ float cmdBrakeMax; // Check VEHICLE_CONTROL node code for these values
 float cmdThrottleMin; // Check VEHICLE_CONTROL node code for these values
 float cmdThrottleMax; // Check VEHICLE_CONTROL node code for these values
 
-double steerAngleActuateMin;
-double steerAngleActuateMax;
-double brakeAngleActuateMin;
-double brakeAngleActuateMax;
+double steerActuateMin; // Depends on relay and motor specs
+double steerActuateMax; // Depends on relay and motor specs
+double brakeActuateMin; // Depends on relay and motor specs
+double brakeActuateMax; // Depends on relay and motor specs
+float throttleActuateMin; // Depends on ESC and motor specs
+float throttleActuateMax; // Depends on ESC and motor specs
 
-double steerRelayVoltageMin;
-double steerRelayVoltageMax;
-double brakeRelayVoltageMin;
-double brakeRelayVoltageMax;
-float throttleActuateMin;
-float throttleActuateMax;
-
-// Miscellaneous Variable Declarations
-
-uint8_t brakeRelayVoltage;
-float steerRelayVoltage;
-
-PID steerAnglePID(&steerAngleFeedback, &steerAngleActuate, &steerAngleDesired, steerKP, steerKI, steerKD, DIRECT);
-PID brakeAnglePID(&brakeAngleFeedback, &brakeAngleActuate, &brakeAngleDesired, brakeKP, brakeKI, brakeKD, DIRECT);
+PID steerAnglePID(&steerAngleFeedback, &steerActuate, &steerAngleDesired, steerKP, steerKI, steerKD, DIRECT);
+PID brakeAnglePID(&brakeAngleFeedback, &brakeActuate, &brakeAngleDesired, brakeKP, brakeKI, brakeKD, DIRECT);
 
 void steerCallBack(const std_msgs::Float32 &cmdSteer) {
   
   steerAngleDesired = cmdSteer.data;
-  steerRelayVoltage = constrain(steerAngleActuate * 100, steerRelayVoltageMin, steerRelayVoltageMax); // steerAngleActutate * 100 just to amplify the value while maintaining sign
-  
-  if (brakeRelayVoltage >= 0) {
-    analogWrite(steerActuatePinForward, steerRelayVoltage); // Send signal through relays governing current flow for forward motor rotation (H-bridge)
+  if (steerActuate >= 0) {
+    analogWrite(steerActuatePinForward, steerActuate); // Send signal through relays governing current flow for forward motor rotation (H-bridge)
     analogWrite(steerActuatePinBackward, 0); // Close relays governing current flow for backward motor rotation (H-bridge)
   } else {
-    analogWrite(steerActuatePinBackward, brakeRelayVoltage); // Send signal through relays governing current flow for backward motor rotation (H-bridge)
+    analogWrite(steerActuatePinBackward, -steerActuate); // Send signal through relays governing current flow for backward motor rotation (H-bridge)
     analogWrite(steerActuatePinForward, 0); // Close relays governing current flow for forward motor rotation (H-bridge)
   
   }
@@ -135,13 +123,12 @@ void steerCallBack(const std_msgs::Float32 &cmdSteer) {
 void brakeCallBack(const std_msgs::Float32 &cmdBrake) {
   
   brakeAngleDesired = cmdBrake.data;
-  brakeRelayVoltage = constrain(brakeAngleActuate * 100, brakeRelayVoltageMin, brakeRelayVoltageMax); // brakeAngleActutate * 100 just to amplify the value while maintaining sign
-  
-  if (brakeRelayVoltage >= 0) {
-    analogWrite(brakeActuatePinForward, brakeRelayVoltage); // Send signal through relays governing current flow for forward motor rotation (H-bridge)
+ 
+  if (brakeActuate >= 0) {
+    analogWrite(brakeActuatePinForward, &brakeActuate); // Send signal through relays governing current flow for forward motor rotation (H-bridge)
     analogWrite(brakeActuatePinBackward, 0); // Close relays governing current flow for backward motor rotation (H-bridge)
   } else {
-    analogWrite(brakeActuatePinBackward, brakeRelayVoltage); // Send signal through relays governing current flow for backward motor rotation (H-bridge)
+    analogWrite(brakeActuatePinBackward, -brakeActuate); // Send signal through relays governing current flow for backward motor rotation (H-bridge)
     analogWrite(brakeActuatePinForward, 0); // Close relays governing current flow for forward motor rotation (H-bridge)
   }
   
@@ -178,8 +165,8 @@ void setup() {
 
   steerAnglePID.SetMode(AUTOMATIC); // Starts PID
   brakeAnglePID.SetMode(AUTOMATIC); // Starts PID
-  steerAnglePID.SetOutputLimits(steerAngleActuateMin, steerAngleActuateMax);
-  brakeAnglePID.SetOutputLimits(brakeAngleActuateMin, brakeAngleActuateMax);
+  steerAnglePID.SetOutputLimits(steerActuateMin, steerActuateMax);
+  brakeAnglePID.SetOutputLimits(brakeActuateMin, brakeActuateMax);
 
   brakeEncoderALastState = digitalRead(brakeEncoderPinA);
   steerEncoderALastState = digitalRead(steerEncoderPinA);
