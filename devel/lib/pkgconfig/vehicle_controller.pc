@@ -1,0 +1,8 @@
+prefix=/media/crinklecut/Windows/Users/charl/Documents/Project_Nomad/devel
+
+Name: vehicle_controller
+Description: Description of vehicle_controller
+Version: 0.0.0
+Cflags: 
+Libs: -L/media/crinklecut/Windows/Users/charl/Documents/Project_Nomad/devel/lib 
+Requires: 

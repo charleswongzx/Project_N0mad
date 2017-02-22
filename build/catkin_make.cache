@@ -1,0 +1,2 @@
+vehicle_controller
+-DCATKIN_DEVEL_PREFIX=/media/crinklecut/Windows/Users/charl/Documents/Project_Nomad/devel -DCMAKE_INSTALL_PREFIX=/media/crinklecut/Windows/Users/charl/Documents/Project_Nomad/install -G Unix Makefiles
